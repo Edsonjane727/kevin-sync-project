@@ -3,12 +3,19 @@ const fs = require('fs');
 const { google } = require('googleapis');
 const { Client } = require('@notionhq/client');
 
-const sa = JSON.parse(fs.readFileSync(process.env.SERVICE_ACCOUNT));
+// Read SERVICE_ACCOUNT from Render Secret File
+const serviceAccountPath = '/var/run/secrets/render/' + process.env.SERVICE_ACCOUNT;
+const sa = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
-const auth = new google.auth.JWT(sa.client_email, null, sa.private_key, [
-  'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/contacts'
-]);
+const auth = new google.auth.JWT(
+  sa.client_email,
+  null,
+  sa.private_key,
+  [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/contacts'
+  ]
+);
 
 const sheets = google.sheets({ version: 'v4', auth });
 const people = google.people({ version: 'v1', auth });
@@ -89,12 +96,13 @@ async function sync() {
       });
       console.log(`Contacts → ${name}`);
     } catch (e) {
-      // Ignore duplicate contacts
+      // Ignore duplicate
     }
   }
 
   console.log(`SYNC DONE! Updated: ${updated}, Created: ${created}, Total: ${rows.length}`);
 }
 
+// Run once, then every 24 hours
 sync();
-setInterval(sync, 24 * 60 * 60 * 1000); // Daily
+setInterval(sync, 24 * 60 * 60 * 1000);
