@@ -1,9 +1,11 @@
 require('dotenv').config();
+const fs = require('fs');
 const { google } = require('googleapis');
 const { Client } = require('@notionhq/client');
 
-// READ JSON DIRECTLY FROM ENV VAR (NO FILE!)
-const sa = JSON.parse(process.env.SERVICE_ACCOUNT);
+// READ FROM SECRET FILE
+const serviceAccountPath = '/var/run/secrets/render/wahaha-member-df21e8453c8b.json';
+const sa = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
 const auth = new google.auth.JWT(
   sa.client_email,
