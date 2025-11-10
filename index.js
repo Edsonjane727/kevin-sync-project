@@ -1,11 +1,9 @@
 require('dotenv').config();
-const fs = require('fs');
 const { google } = require('googleapis');
 const { Client } = require('@notionhq/client');
 
-// Read SERVICE_ACCOUNT from Render Secret File
-const serviceAccountPath = '/var/run/secrets/render/' + process.env.SERVICE_ACCOUNT;
-const sa = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+// READ JSON DIRECTLY FROM ENV VAR (NO FILE!)
+const sa = JSON.parse(process.env.SERVICE_ACCOUNT);
 
 const auth = new google.auth.JWT(
   sa.client_email,
@@ -24,7 +22,6 @@ const notion = new Client({ auth: process.env.NOTION_TOKEN });
 async function sync() {
   console.log("SYNC STARTED →", new Date().toLocaleString());
 
-  // Read from Sheet: A=Name, B=Phone, C=Member ID
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.SHEET_ID,
     range: 'Members!A2:C'
@@ -33,7 +30,6 @@ async function sync() {
   const rows = res.data.values || [];
   console.log(`Found ${rows.length} members in Google Sheet`);
 
-  // Fetch all existing Notion pages
   let existing = [];
   let nextCursor = undefined;
   do {
@@ -45,7 +41,6 @@ async function sync() {
     nextCursor = response.next_cursor;
   } while (nextCursor);
 
-  // Map: Member ID → Notion Page ID
   const notionMap = {};
   existing.forEach(page => {
     const memberId = page.properties["Member ID"]?.title?.[0]?.text?.content;
@@ -61,7 +56,6 @@ async function sync() {
     if (!name || !phone || !id) continue;
 
     const pageId = notionMap[id];
-
     const properties = {
       "First Name": { rich_text: [{ text: { content: name } }] },
       "Mobile Phone": { phone_number: phone },
@@ -85,7 +79,6 @@ async function sync() {
       console.log(`Error → ${name}:`, e.message);
     }
 
-    // Google Contacts: skip if already exists
     try {
       await people.people.createContact({
         requestBody: {
@@ -95,14 +88,11 @@ async function sync() {
         }
       });
       console.log(`Contacts → ${name}`);
-    } catch (e) {
-      // Ignore duplicate
-    }
+    } catch (e) {}
   }
 
   console.log(`SYNC DONE! Updated: ${updated}, Created: ${created}, Total: ${rows.length}`);
 }
 
-// Run once, then every 24 hours
 sync();
 setInterval(sync, 24 * 60 * 60 * 1000);
